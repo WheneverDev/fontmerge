@@ -6,6 +6,7 @@ import collections
 import ass
 import subprocess
 import distutils.spawn
+from colorama import Fore, init
 
 from fontTools import ttLib
 import matplotlib.font_manager as fontman
@@ -191,16 +192,22 @@ def get_used_font_path(subtitles):
                     fonts_path.append(installedFonts[fontFullName])
                     fontsUsed.remove(list(common_value(fontFullName, fontsUsed))[0])
 
-    for missing in fontsUsed:
-        fonts_missing.append(missing)
+    if(fontsUsed != []):
+        for missing in fontsUsed:
+            fonts_missing.append(missing)
 
-    print("\nSome fonts were not found. Are they installed? :")
-    print("\n".join(fonts_missing))
+        init(convert=True)
+        print(Fore.RED + "\nSome fonts were not found. Are they installed? :")
+        print("\n".join(fonts_missing))
+        print(Fore.WHITE + "\n")
+
+    else:
+        print("All fonts were found")
 
     return fonts_path
 
 def merge(ass, mkv, fonts, mkvmerge):
-    print("\nMerging matroska file with fonts")
+    print("Merging matroska file with fonts")
 
     output = os.path.basename(mkv).split('.mkv')[0] + ".fontmerge.mkv"
 
