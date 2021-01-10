@@ -225,13 +225,12 @@ def merge(ass, mkv, fonts, mkvmerge):
 def main():
     parser = argparse.ArgumentParser(description="Automatically merge fonts used in a Matroska file.")
     parser.add_argument('subtitles', help="""
-    Subtitles containing fonts to merge. Need to be an ASS file.
-    """)
+    Subtitles containing fonts to be merged. Must be an ASS file.    """)
     parser.add_argument('mkv', help="""
-    Video where fonts will go. Need to be a Matroska file.
+    Video where the fonts will go. Must be a Matroska file.
     """)
     parser.add_argument('--mkvmerge', metavar="path", help="""
-    Path to mkvmerge.exe if not in environment variable.
+    Path to mkvmerge.exe if not in variable environments.
     """)
 
     args = parser.parse_args()  
