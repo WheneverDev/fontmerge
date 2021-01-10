@@ -12,7 +12,7 @@ pip install argparse ass fontTools matplotlib
 
 ## Usage
 
-```python
+```text
 usage: fontmerge.py [-h] [--mkvmerge path] subtitles mkv
 
 Automatically merge fonts used in a Matroska file.
