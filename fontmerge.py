@@ -92,10 +92,7 @@ def parse_line(line, line_style, styles):
 def common_value(array1, array2): 
     array1_set = set(array1) 
     array2_set = set(array2) 
-    if (array1_set & array2_set): 
-        return True 
-    else: 
-        return False
+    return (array1_set & array2_set) 
 
 
 def is_mkv(filename):
@@ -181,6 +178,7 @@ def get_used_font_path(subtitles):
 
     installedFonts = get_installed_fonts()
     fonts = []
+    fonts_missing = []
     fonts_path = []
 
     for name, doc in subtitles:
@@ -191,12 +189,18 @@ def get_used_font_path(subtitles):
 
             if common_value(fontFullName, fontsUsed) and installedFonts[fontFullName] not in fonts_path:  # Pour vérifier si le nom ou la famille se trouve dans les fonts utilisées
                     fonts_path.append(installedFonts[fontFullName])
+                    fontsUsed.remove(list(common_value(fontFullName, fontsUsed))[0])
 
-    print("%s fonts found" % len(fonts_path))
+    for missing in fontsUsed:
+        fonts_missing.append(missing)
+
+    print("\nSome fonts were not found. Are they installed? :")
+    print("\n".join(fonts_missing))
+
     return fonts_path
 
 def merge(ass, mkv, fonts, mkvmerge):
-    print("Merging matroska file with fonts")
+    print("\nMerging matroska file with fonts")
 
     output = os.path.basename(mkv).split('.mkv')[0] + ".fontmerge.mkv"
 
