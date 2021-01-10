@@ -7,7 +7,7 @@ Automatically merge fonts used in a Matroska file.
 Use the package manager [pip](https://pip.pypa.io/en/stable/).
 
 ```bash
-pip install argparse ass fontTools matplotlib
+pip install argparse ass fontTools matplotlib colorama
 ```
 
 ## Usage
