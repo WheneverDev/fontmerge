@@ -16,6 +16,8 @@ TAG_PATTERN = re.compile(r"\\\s*([^(\\]+)(?<!\s)\s*(?:\(\s*([^)]+)(?<!\s)\s*)?")
 INT_PATTERN = re.compile(r"^[+-]?\d+")
 LINE_PATTERN = re.compile(r"(?:\{(?P<tags>[^}]*)\}?)?(?P<text>[^{]*)")
 
+font_ext = (".OTF", ".otf", ".TTF", ".ttf")
+
 State = collections.namedtuple("State", ["font", "italic", "weight", "drawing"])
 
 def parse_int(s):
@@ -107,6 +109,15 @@ def is_ass(filename):
 def is_writable(path):
     return os.access(path, os.W_OK)
 
+def is_dir(path):
+    return os.path.isdir(path)
+
+def contains_fonts(path):
+    import os
+    for File in os.listdir(path):
+        if File.lower().endswith(tuple(font_ext)):
+            return True
+    return False
 
 def fonts_name_used(doc, fonts):
 
@@ -129,18 +140,26 @@ def fonts_name_used(doc, fonts):
 
         for state, text in parse_line(line.text, style, styles):
             
-            if state.font not in font_list:
-                font_list.append(state.font)
+            if state.font.upper() not in font_list:
+
+                font_list.append(state.font.upper())
 
     for font in styles:
-        if styles[font].font not in font_list:
-            font_list.append(styles[font].font)
+        if styles[font].font.upper() not in font_list:
+            font_list.append(styles[font].font.upper())
 
         
     return font_list
 
-def get_installed_fonts():
+def get_installed_fonts(fontpath):
     fonts = fontman.win32InstalledFonts(fontext='ttf')
+
+    if fontpath is not None :
+        print("Obtaining fonts from a specific folder.")
+        for fname in os.listdir(fontpath) : 
+            if fname.endswith(tuple(font_ext)):
+                fonts.append(os.path.abspath(fontpath + "//" + fname))
+                
 
     FONT_SPECIFIER_NAME_ID = 4
     FONT_SPECIFIER_FAMILY_ID = 1
@@ -158,7 +177,7 @@ def get_installed_fonts():
             elif record.nameID == FONT_SPECIFIER_FAMILY_ID and not family: 
                 family = name_str
             if name and family: break
-        return name, family
+        return name.upper(), family.upper()
 
     font_list = {}
 
@@ -167,17 +186,17 @@ def get_installed_fonts():
         try :
             tt = ttLib.TTFont(fonts[i], fontNumber=0)
         except:
-            print(fonts[i])
+            print(Fore.RED + "fontmerge : error : " + fonts[i] + "not found" + Fore.WHITE)
             break
 
         font_list[font_short_name(tt)] = fonts[i]
 
     return font_list
 
-def get_used_font_path(subtitles):
+def get_used_font_path(subtitles, fontpath):
     print("Recovering fonts used in subtitles")
 
-    installedFonts = get_installed_fonts()
+    installedFonts = get_installed_fonts(fontpath)
     fonts = []
     fonts_missing = []
     fonts_path = []
@@ -187,6 +206,8 @@ def get_used_font_path(subtitles):
         fontsUsed = fonts_name_used(doc, fonts)
 
         for fontFullName in installedFonts:  # Pour récupérer le nom et la famille de toutes les fonts
+
+            fontFullName = fontFullName
 
             if common_value(fontFullName, fontsUsed) and installedFonts[fontFullName] not in fonts_path:  # Pour vérifier si le nom ou la famille se trouve dans les fonts utilisées
                     fonts_path.append(installedFonts[fontFullName])
@@ -243,6 +264,9 @@ def main():
     parser.add_argument('--mkvmerge', metavar="path", help="""
     Path to mkvmerge.exe if not in variable environments.
     """)
+    parser.add_argument('--fontfolder', metavar="path", help="""
+    Add a file with fonts to use.
+    """)
 
     args = parser.parse_args()  
 
@@ -254,12 +278,17 @@ def main():
         return print("fontmerge.py: error: the file is not an Ass file.")
     if not is_writable(args.mkv):
         return print("fontmerge.py: error: unable to create the file.")
+    if not is_dir(args.fontfolder):
+        return print("fontmerge.py: error: font path is not a directory.")
+    if not contains_fonts(args.fontfolder):
+        print(Fore.RED + "fontmerge.py: error: font path does not contain any fonts." + Fore.WHITE)
+        args.fontpath = None
 
 
     with open(args.subtitles, 'r', encoding='utf_8_sig') as f:
         subtitles = [(os.path.basename(args.subtitles), ass.parse(f))]
     
-    fonts_path = get_used_font_path(subtitles)
+    fonts_path = get_used_font_path(subtitles, args.fontfolder)
  
     merge(args.subtitles, args.mkv, fonts_path, args.mkvmerge)
 
