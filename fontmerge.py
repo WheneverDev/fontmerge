@@ -6,7 +6,10 @@ import collections
 import ass
 import subprocess
 import distutils.spawn
+
 from colorama import Fore, init
+init(convert=True)
+
 
 from fontTools import ttLib
 import matplotlib.font_manager as fontman
@@ -103,8 +106,10 @@ def is_mkv(filename):
         return f.read(4) == b'\x1a\x45\xdf\xa3'
 
 def is_ass(filename):
-    with open(filename, 'rb') as f:
-        return f.name.endswith(".ass")
+
+    for ass in filename :
+        with open(ass, 'rb') as f:
+            return f.name.endswith(".ass")
 
 def is_writable(path):
     return os.access(path, os.W_OK)
@@ -140,31 +145,32 @@ def fonts_name_used(doc, fonts):
 
         for state, text in parse_line(line.text, style, styles):
             
-            if state.font.upper() not in font_list:
+            if state.font.upper().replace(" ", "") not in font_list:
 
-                font_list.append(state.font.upper())
+                font_list.append(state.font.upper().replace(" ", ""))
 
     for font in styles:
-        if styles[font].font.upper() not in font_list:
-            font_list.append(styles[font].font.upper())
+        if styles[font].font.upper().replace(" ", "") not in font_list:
+            font_list.append(styles[font].font.upper().replace(" ", ""))
 
         
     return font_list
 
-def get_installed_fonts(fontpath):
+def get_installed_fonts(fontfolder):
     fonts = fontman.win32InstalledFonts(fontext='ttf')
+    print("Recovery of fonts installed on the computer.")
 
-    if fontpath is not None :
+
+    if fontfolder is not None :
         print("Obtaining fonts from a specific folder.")
-        for fname in os.listdir(fontpath) : 
+        for fname in os.listdir(fontfolder) : 
             if fname.endswith(tuple(font_ext)):
-                fonts.append(os.path.abspath(fontpath + "//" + fname))
+                fonts.append(os.path.abspath(fontfolder + "//" + fname))
                 
 
     FONT_SPECIFIER_NAME_ID = 4
     FONT_SPECIFIER_FAMILY_ID = 1
     def font_short_name(font):
-        """Get the short name from the font's names table"""
         name = ""
         family = ""
         for record in font['name'].names:
@@ -177,7 +183,7 @@ def get_installed_fonts(fontpath):
             elif record.nameID == FONT_SPECIFIER_FAMILY_ID and not family: 
                 family = name_str
             if name and family: break
-        return name.upper(), family.upper()
+        return name.upper().replace(" ", ""), family.upper().replace(" ", "")
 
     font_list = {}
 
@@ -193,16 +199,15 @@ def get_installed_fonts(fontpath):
 
     return font_list
 
-def get_used_font_path(subtitles, fontpath):
+def get_used_font_path(subtitles, installedFonts):
     print("Recovering fonts used in subtitles")
 
-    installedFonts = get_installed_fonts(fontpath)
     fonts = []
     fonts_missing = []
     fonts_path = []
 
     for name, doc in subtitles:
-        print(f"Validating track {name}")
+        print(Fore.YELLOW + f" - Validating track {name}" + Fore.WHITE)
         fontsUsed = fonts_name_used(doc, fonts)
 
         for fontFullName in installedFonts:  # Pour récupérer le nom et la famille de toutes les fonts
@@ -223,12 +228,12 @@ def get_used_font_path(subtitles, fontpath):
         print(Fore.WHITE + "\n")
 
     else:
-        print("All fonts were found")
+        print(Fore.LIGHTGREEN_EX + " - %d fonts were found" %(len(fonts_path)) + Fore.WHITE)
 
     return fonts_path
 
-def merge(ass, mkv, fonts, mkvmerge):
-    print("Merging matroska file with fonts")
+def merge(mkv, fonts, mkvmerge):
+    print("Merging matroska file with %d fonts" % (len(fonts)))
 
     output = os.path.basename(mkv).split('.mkv')[0] + ".fontmerge.mkv"
 
@@ -252,14 +257,16 @@ def merge(ass, mkv, fonts, mkvmerge):
         mkvmerge_args.append("--attach-file " + '"' + path + '"')
 
     subprocess.call(" ".join(mkvmerge_args))
+    print(Fore.LIGHTGREEN_EX + "Successfully merging fonts with mkv" + Fore.WHITE)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Automatically merge fonts used in a Matroska file.")
-    parser.add_argument('subtitles', help="""
-    Subtitles containing fonts to be merged. Must be an ASS file.    """)
     parser.add_argument('mkv', help="""
     Video where the fonts will go. Must be a Matroska file.
+    """)
+    parser.add_argument('subtitles', nargs="+", help="""
+    Subtitles (can be several) containing fonts to be merged. Must be an ASS file.
     """)
     parser.add_argument('--mkvmerge', metavar="path", help="""
     Path to mkvmerge.exe if not in variable environments.
@@ -270,29 +277,37 @@ def main():
 
     args = parser.parse_args()  
 
-    if not distutils.spawn.find_executable("mkvmerge.exe") and args.mkvmerge is None:
-        return print("fontmerge.py: error: mkvmerge in not in your environnements variable, add it or specify the path to mkvmerge.exe with --mkvmerge.")
+    if args.mkvmerge is None and not distutils.spawn.find_executable("mkvmerge.exe"):
+        return print(Fore.RED + "fontmerge.py: error: mkvmerge in not in your environnements variable, add it or specify the path to mkvmerge.exe with --mkvmerge." + Fore.WHITE)
     if not is_mkv(args.mkv):
-        return print("fontmerge.py: error: the file on -mkv is not a Matroska file.")   
+        return print(Fore.RED + "fontmerge.py: error: the file on mkv is not a Matroska file."+ Fore.WHITE)   
     if not is_ass(args.subtitles):
-        return print("fontmerge.py: error: the file is not an Ass file.")
+        return print(Fore.RED + "fontmerge.py: error: the file is not an Ass file." + Fore.WHITE)
     if not is_writable(args.mkv):
-        return print("fontmerge.py: error: unable to create the file.")
-    if not is_dir(args.fontfolder):
-        return print("fontmerge.py: error: font path is not a directory.")
-    if not contains_fonts(args.fontfolder):
-        print(Fore.RED + "fontmerge.py: error: font path does not contain any fonts." + Fore.WHITE)
-        args.fontpath = None
+        return print(Fore.RED + "fontmerge.py: error: unable to create the file." + Fore.WHITE)
+    if args.fontfolder is not None :
+        if is_dir(args.fontfolder):
+            return print(Fore.RED + "fontmerge.py: error: font path is not a directory." + Fore.WHITE)
+    if args.fontfolder is not None :
+        if not contains_fonts(args.fontfolder):
+            print(Fore.RED + "fontmerge.py: error: font path does not contain any fonts." + Fore.WHITE)
+            args.fontfolder = None
 
 
-    with open(args.subtitles, 'r', encoding='utf_8_sig') as f:
-        subtitles = [(os.path.basename(args.subtitles), ass.parse(f))]
+    fonts_path = []
+    installedFonts = get_installed_fonts(args.fontfolder)
+
+    for assf in args.subtitles:
+        with open(assf, 'r', encoding='utf_8_sig') as f:
+            subtitles = [(os.path.basename(assf), ass.parse(f))]
+
+        fonts_path.extend(get_used_font_path(subtitles, installedFonts))
     
-    fonts_path = get_used_font_path(subtitles, args.fontfolder)
- 
-    merge(args.subtitles, args.mkv, fonts_path, args.mkvmerge)
+    if len(fonts_path) != len(dict.fromkeys(fonts_path)):
+        print("Some fonts are duplicate. Removing.")
+        fonts_path = list(dict.fromkeys(fonts_path))
 
-    return print("Successfully merging subtitles and mkv")
+    merge(args.mkv, fonts_path, args.mkvmerge)
 
 
 if __name__ == "__main__":
