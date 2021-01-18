@@ -286,7 +286,7 @@ def main():
     if not is_writable(args.mkv):
         return print(Fore.RED + "fontmerge.py: error: unable to create the file." + Fore.WHITE)
     if args.fontfolder is not None :
-        if is_dir(args.fontfolder):
+        if not is_dir(args.fontfolder):
             return print(Fore.RED + "fontmerge.py: error: font path is not a directory." + Fore.WHITE)
     if args.fontfolder is not None :
         if not contains_fonts(args.fontfolder):
