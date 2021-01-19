@@ -24,6 +24,6 @@ positional arguments:
 optional arguments:
   -h, --help                Show this help message and exit
   --mkvmerge path           Path to mkvmerge.exe if not in variable environments.
-  --fontfolder path         Add a file with fonts to use.
+  --fontfolder path         Add a folder with fonts to use.
   --output path, -o path    Destination path of the Matroska merged file.
 ```
