@@ -95,6 +95,7 @@ def parse_line(line, line_style, styles):
         if len(text) > 0:
             yield state, text
 
+
 def common_value(array1, array2): 
     array1_set = set(array1) 
     array2_set = set(array2) 
@@ -117,12 +118,14 @@ def is_writable(path):
 def is_dir(path):
     return os.path.isdir(path)
 
-def contains_fonts(path):
-    import os
-    for File in os.listdir(path):
-        if File.lower().endswith(tuple(font_ext)):
-            return True
-    return False
+def contains_fonts(fontfolder):
+    for root, dirs, files in os.walk(fontfolder):
+        for file in files:
+            if file.lower().endswith(tuple(font_ext)):
+                return True
+            
+        return False
+
 
 def fonts_name_used(doc, fonts):
 
@@ -162,10 +165,12 @@ def get_installed_fonts(fontfolder):
 
 
     if fontfolder is not None :
-        print("Obtaining fonts from a specific folder.")
-        for fname in os.listdir(fontfolder) : 
-            if fname.endswith(tuple(font_ext)):
-                fonts.append(os.path.abspath(fontfolder + "//" + fname))
+        print("Obtaining fonts from a specific folder.")            
+        for root, dirs, files in os.walk(fontfolder):
+            path = root.split(os.sep)
+            for file in files:
+                if file.endswith(tuple(font_ext)):
+                    fonts.append(os.path.abspath(root + "//" + file))
                 
 
     FONT_SPECIFIER_NAME_ID = 4
@@ -192,7 +197,7 @@ def get_installed_fonts(fontfolder):
         try :
             tt = ttLib.TTFont(fonts[i], fontNumber=0)
         except:
-            print(Fore.RED + "fontmerge : error : " + fonts[i] + "not found" + Fore.WHITE)
+            print(Fore.RED + "fontmerge : error : " + fonts[i] + " not found" + Fore.WHITE)
             break
 
         font_list[font_short_name(tt)] = fonts[i]
@@ -232,10 +237,11 @@ def get_used_font_path(subtitles, installedFonts):
 
     return fonts_path
 
-def merge(mkv, fonts, mkvmerge):
+def merge(mkv, fonts, mkvmerge, output):
     print("Merging matroska file with %d fonts" % (len(fonts)))
 
-    output = os.path.basename(mkv).split('.mkv')[0] + ".fontmerge.mkv"
+    if output is None :
+        output = os.path.basename(mkv).split('.mkv')[0] + ".fontmerge.mkv"
 
     mkvmerge_args = [
         "-q",
@@ -274,6 +280,9 @@ def main():
     parser.add_argument('--fontfolder', metavar="path", help="""
     Add a file with fonts to use.
     """)
+    parser.add_argument('--output', '-o', metavar="path", help="""
+    Destination path of the Matroska merged file.
+    """)
 
     args = parser.parse_args()  
 
@@ -282,16 +291,20 @@ def main():
     if not is_mkv(args.mkv):
         return print(Fore.RED + "fontmerge.py: error: the file on mkv is not a Matroska file."+ Fore.WHITE)   
     if not is_ass(args.subtitles):
-        return print(Fore.RED + "fontmerge.py: error: the file is not an Ass file." + Fore.WHITE)
+        return print(Fore.RED + "fontmerge.py: error: the file on ass is not an ASS file." + Fore.WHITE)
     if not is_writable(args.mkv):
-        return print(Fore.RED + "fontmerge.py: error: unable to create the file." + Fore.WHITE)
+        return print(Fore.RED + "fontmerge.py: error: unable to create the Matroska file." + Fore.WHITE)
+    if args.output is not None :
+        if not is_dir(os.path.dirname(args.output)):
+            return print(Fore.RED + "fontmerge.py: error: output path is not a valid folder." + Fore.WHITE)
     if args.fontfolder is not None :
         if not is_dir(args.fontfolder):
             return print(Fore.RED + "fontmerge.py: error: font path is not a directory." + Fore.WHITE)
-    if args.fontfolder is not None :
-        if not contains_fonts(args.fontfolder):
-            print(Fore.RED + "fontmerge.py: error: font path does not contain any fonts." + Fore.WHITE)
-            args.fontfolder = None
+        else:
+            if not contains_fonts(args.fontfolder):
+                print(Fore.RED + "fontmerge.py: error: font path does not contain any fonts." + Fore.WHITE)
+                args.fontfolder = None
+        
 
 
     fonts_path = []
@@ -307,7 +320,7 @@ def main():
         print("Some fonts are duplicate. Removing.")
         fonts_path = list(dict.fromkeys(fonts_path))
 
-    merge(args.mkv, fonts_path, args.mkvmerge)
+    merge(args.mkv, fonts_path, args.mkvmerge, args.output)
 
 
 if __name__ == "__main__":
